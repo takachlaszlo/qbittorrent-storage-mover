@@ -1,0 +1,16 @@
+#!/usr/bin/env bash
+set -Eeuo pipefail
+
+if [[ ${EUID} -ne 0 ]]; then
+  echo "Run this command as root: sudo qbit-mover-emergency" >&2
+  exit 1
+fi
+
+echo "Starting emergency relocation of every torrent still on the source path..."
+if ! systemctl start qbit-mover-emergency.service; then
+  journalctl -u qbit-mover-emergency.service -n 50 --no-pager
+  echo "Emergency relocation could not be queued." >&2
+  exit 1
+fi
+journalctl -u qbit-mover-emergency.service -n 50 --no-pager
+echo "The request was handed to qBittorrent. Relocation continues in qBittorrent."

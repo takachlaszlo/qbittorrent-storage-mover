@@ -1,0 +1,16 @@
+[Unit]
+Description=Emergency relocation of all qBittorrent torrents from fast storage
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=@SERVICE_USER@
+Group=@SERVICE_USER@
+EnvironmentFile=/etc/qbit-mover/qbit-mover.env
+ExecStart=/usr/local/lib/qbit-mover/qbit-move-completed.py --emergency
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=read-only
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6

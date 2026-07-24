@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
-"""Queue completed qBittorrent torrents for relocation to slower storage."""
+"""Queue qBittorrent torrents for relocation to slower storage."""
 
 from __future__ import annotations
 
+import argparse
 import http.cookiejar
 import json
 import os
@@ -94,11 +95,16 @@ def validate_paths() -> None:
         )
 
 
-def main() -> int:
+def main(emergency: bool = False) -> int:
     validate_paths()
     client = QBClient(QB_URL)
     client.authenticate()
-    torrents = json.loads(client.request("/api/v2/torrents/info?filter=completed"))
+    info_endpoint = (
+        "/api/v2/torrents/info"
+        if emergency
+        else "/api/v2/torrents/info?filter=completed"
+    )
+    torrents = json.loads(client.request(info_endpoint))
 
     now = int(time.time())
     eligible: list[dict] = []
@@ -106,10 +112,20 @@ def main() -> int:
         completion_on = int(torrent.get("completion_on") or 0)
         amount_left = int(torrent.get("amount_left") or 0)
         save_path = Path(torrent.get("save_path") or "/").resolve()
+        state = torrent.get("state")
+
+        if not is_under(save_path, SOURCE_PATH):
+            continue
+
+        if emergency:
+            if state == "moving":
+                continue
+            eligible.append(torrent)
+            continue
 
         if completion_on <= 0 or now - completion_on < MIN_AGE_SECONDS:
             continue
-        if amount_left != 0 or not is_under(save_path, SOURCE_PATH):
+        if amount_left != 0:
             continue
         torrent_tags = {
             tag.strip()
@@ -118,7 +134,7 @@ def main() -> int:
         }
         if INCLUDE_TAGS and not INCLUDE_TAGS.intersection(torrent_tags):
             continue
-        if torrent.get("state") in {
+        if state in {
             "moving",
             "checkingUP",
             "checkingResumeData",
@@ -128,8 +144,12 @@ def main() -> int:
             continue
         eligible.append(torrent)
 
-    eligible.sort(key=lambda item: int(item.get("completion_on") or 0))
+    sort_field = "added_on" if emergency else "completion_on"
+    eligible.sort(key=lambda item: int(item.get(sort_field) or 0))
     if not eligible:
+        if emergency:
+            log("EMERGENCY: no torrents on the source path need relocation.")
+            return 0
         tag_note = (
             f" matching tags: {', '.join(sorted(INCLUDE_TAGS))}"
             if INCLUDE_TAGS
@@ -145,6 +165,7 @@ def main() -> int:
     selected_bytes = 0
     free_bytes = shutil.disk_usage(TARGET_PATH).free
     usable_bytes = max(0, free_bytes - MIN_FREE_BYTES)
+    effective_dry_run = DRY_RUN and not emergency
 
     for torrent in eligible:
         name = torrent.get("name", torrent.get("hash", "unknown"))
@@ -154,7 +175,10 @@ def main() -> int:
             log(f"SKIPPED, target already exists: {name!r} -> {target_content}")
             continue
 
-        size = int(torrent.get("size") or torrent.get("total_size") or 0)
+        size = max(
+            0,
+            int(torrent.get("size") or torrent.get("total_size") or 0),
+        )
         if selected_bytes + size > usable_bytes:
             log(
                 f"SKIPPED, insufficient target space: {name!r}; "
@@ -162,8 +186,8 @@ def main() -> int:
             )
             continue
 
-        age = now - int(torrent["completion_on"])
-        if DRY_RUN:
+        if effective_dry_run:
+            age = now - int(torrent["completion_on"])
             log(
                 f"DRY RUN: eligible: {name!r}; age={age}s; "
                 f"source={torrent.get('save_path')}; target={TARGET_PATH}"
@@ -175,7 +199,7 @@ def main() -> int:
         log("Eligible torrents were found, but none could be queued.")
         return 0
 
-    if DRY_RUN:
+    if effective_dry_run:
         log(
             f"Dry run complete: {len(selected)} torrent(s), "
             f"{selected_bytes} bytes; no data was moved."
@@ -189,16 +213,28 @@ def main() -> int:
             "location": str(TARGET_PATH),
         },
     )
+    queue_message = "EMERGENCY: queued" if emergency else "Queued"
     log(
-        f"Queued {len(selected)} torrent(s) in qBittorrent's relocation queue; "
+        f"{queue_message} {len(selected)} torrent(s) in qBittorrent's "
+        f"relocation queue; "
         f"bytes={selected_bytes}; target={TARGET_PATH}"
     )
     return 0
 
 
 if __name__ == "__main__":
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        "--emergency",
+        action="store_true",
+        help=(
+            "immediately relocate every torrent still on SOURCE_PATH, "
+            "including incomplete downloads"
+        ),
+    )
+    arguments = parser.parse_args()
     try:
-        raise SystemExit(main())
+        raise SystemExit(main(emergency=arguments.emergency))
     except (
         KeyError,
         OSError,

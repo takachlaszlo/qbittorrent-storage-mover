@@ -381,6 +381,47 @@ sudo systemctl start qbit-mover.service
 Ha a `systemctl` kimenetének alján `(END)` látható, nyomd meg a `q` billentyűt
 a lapozóból való kilépéshez. A `--no-pager` kapcsoló ezt megelőzi.
 
+## Vészhelyzeti áthelyezés megtelt NVMe esetén
+
+Ha az NVMe veszélyesen megtelik, futtasd ezt az egyetlen parancsot:
+
+```bash
+sudo qbit-mover-emergency
+```
+
+Ez azonnal átadja a qBittorrent költöztetési sorának az összes olyan
+torrentet, amelynek mentési helye még a beállított forrásmappában van.
+
+A vészparancs:
+
+- nem várja meg a beállított elkészülési időt;
+- nem alkalmazza a TAG-szűrést;
+- a még letöltés alatt álló és szüneteltetett torrenteket is áthelyezi;
+- a már `moving` állapotú torrentet nem küldi be másodszor;
+- `DRY_RUN="1"` esetén is valódi költöztetést indít;
+- megtartja a célütközés és a 10 GiB szabadhely-tartalék védelmét.
+
+> [!WARNING]
+> Ez valódi vészparancs, nincs benne további megerősítő kérdés. Csak akkor
+> futtasd, ha valóban minden NVMe-n lévő torrentet azonnal át szeretnél adni
+> a költöztetési sornak.
+
+A parancs befejezése nem jelenti azt, hogy minden fájl már átért. A qBittorrent
+háttérben, a saját sorában végzi el a tényleges mozgatásokat. Egy torrent
+mozgatás közben átmenetileg megállhat, majd a HDD-ről folytatja a letöltést
+vagy seedelést.
+
+A vészfutás naplója külön is lekérhető:
+
+```bash
+sudo journalctl -u qbit-mover-emergency.service -n 100 --no-pager
+```
+
+Ha a qBittorrentben be van kapcsolva a **Keep incomplete torrents in / Use
+another path for incomplete torrents** beállítás, ellenőrizd annak az
+ideiglenes mappának a helyét is. Külön NVMe-s ideiglenes mappa esetén a
+félkész adatok kezelése eltérhet a torrent normál mentési útvonalától.
+
 ## Hol tárolódnak a beállítások?
 
 A szerver saját beállításai itt vannak:
@@ -441,7 +482,8 @@ sudo ./uninstall.sh
 Ez eltávolítja:
 
 - a script telepített példányát;
-- a systemd service-t és timert;
+- a normál és vészhelyzeti systemd service-t, valamint a timert;
+- a `qbit-mover-emergency` parancsot;
 - a szerveroldali env fájlt és a benne tárolt jelszót.
 
 A qBittorrent által már elfogadott költöztetések ettől nem állnak le.
@@ -517,6 +559,13 @@ Igen. A qBittorrent kezeli az állapotváltozást, majd az új helyről folytatj
 seedelést. A tényleges fájlmozgatás idejére a qBittorrent átmenetileg
 szüneteltetheti az adott torrentet.
 
+### A vészparancs után folytatódik a félkész letöltés?
+
+Igen. A vészparancs ugyanazt a qBittorrent „Set location” funkciót használja.
+A qBittorrent áthelyezi a már letöltött adatot, majd az új mentési helyen
+folytatja a torrentet. A mozgatás idején az adott torrent átmenetileg
+`moving` állapotba kerülhet.
+
 ### Miért kerül egyszerre több torrent `moving` állapotba?
 
 A script egy kötegben adja át az összes megfelelőt. A qBittorrent a saját
@@ -560,8 +609,9 @@ konténer eltérő útvonalakat láthat, ezért külön konfiguráció szükség
 | `install.sh` | Interaktív telepítő és próbaüzem |
 | `uninstall.sh` | Eltávolító |
 | `qbit-move-completed.py` | A qBittorrent API-t kezelő program |
+| `qbit-mover-emergency` | Egyparancsos vészhelyzeti indító |
 | `qbit-mover.env.example` | Titkok nélküli mintakonfiguráció |
-| `systemd/` | Service- és timer-sablonok |
+| `systemd/` | Normál/vészhelyzeti service- és timer-sablonok |
 | `tests/` | Automatikus tesztek |
 
 ## Licenc

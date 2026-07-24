@@ -5,6 +5,7 @@ readonly INSTALL_DIR="/usr/local/lib/qbit-mover"
 readonly CONFIG_DIR="/etc/qbit-mover"
 readonly CONFIG_FILE="${CONFIG_DIR}/qbit-mover.env"
 readonly SERVICE_FILE="/etc/systemd/system/qbit-mover.service"
+readonly EMERGENCY_SERVICE_FILE="/etc/systemd/system/qbit-mover-emergency.service"
 readonly TIMER_FILE="/etc/systemd/system/qbit-mover.timer"
 readonly SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 
@@ -152,6 +153,9 @@ install -d -o root -g root -m 0700 "$CONFIG_DIR"
 install -o root -g root -m 0755 \
   "${SCRIPT_DIR}/qbit-move-completed.py" \
   "${INSTALL_DIR}/qbit-move-completed.py"
+install -o root -g root -m 0755 \
+  "${SCRIPT_DIR}/qbit-mover-emergency" \
+  /usr/local/sbin/qbit-mover-emergency
 
 temp_config=$(mktemp "${CONFIG_DIR}/qbit-mover.env.XXXXXX")
 trap 'rm -f -- "${temp_config:-}"' EXIT
@@ -175,6 +179,10 @@ unset qb_password
 sed "s/@SERVICE_USER@/${service_user}/g" \
   "${SCRIPT_DIR}/systemd/qbit-mover.service.in" >"$SERVICE_FILE"
 chmod 0644 "$SERVICE_FILE"
+sed "s/@SERVICE_USER@/${service_user}/g" \
+  "${SCRIPT_DIR}/systemd/qbit-mover-emergency.service.in" \
+  >"$EMERGENCY_SERVICE_FILE"
+chmod 0644 "$EMERGENCY_SERVICE_FILE"
 sed "s/@RUN_INTERVAL@/${run_interval}/g" \
   "${SCRIPT_DIR}/systemd/qbit-mover.timer" >"$TIMER_FILE"
 chmod 0644 "$TIMER_FILE"
@@ -202,3 +210,4 @@ else
   echo "Installed in dry-run mode. The timer remains disabled."
   echo "Re-run sudo ./install.sh when you are ready to activate it."
 fi
+echo "Emergency command: sudo qbit-mover-emergency"
