@@ -1,5 +1,5 @@
 [Unit]
-Description=Run qBittorrent storage mover hourly
+Description=Run qBittorrent storage mover periodically
 
 [Timer]
 OnActiveSec=@RUN_INTERVAL@

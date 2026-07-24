@@ -192,7 +192,7 @@ fi
 journalctl -u qbit-mover.service -n 30 --no-pager
 
 echo
-read -r -p "Enable real moves and the hourly timer now? [y/N]: " enable_now
+read -r -p "Enable real moves and the configured timer now? [y/N]: " enable_now
 if [[ "$enable_now" =~ ^[Yy]$ ]]; then
   sed -i 's/^DRY_RUN=.*/DRY_RUN="0"/' "$CONFIG_FILE"
   systemctl enable --now qbit-mover.timer
