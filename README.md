@@ -392,6 +392,18 @@ sudo qbit-mover-emergency
 Ez azonnal átadja a qBittorrent költöztetési sorának az összes olyan
 torrentet, amelynek mentési helye még a beállított forrásmappában van.
 
+Az aktuális torrentlista csak egyszer, a parancs indításakor kerül lekérésre.
+A script kizárólag az ekkor megtalált torrentek pontos hash-eire küld
+torrentenkénti helymódosítást. Nem módosítja:
+
+- a qBittorrent **Default Save Path** beállítását;
+- a kategóriák mentési útvonalait;
+- az autobrr konfigurációját;
+- a parancs után hozzáadott torrentek mentési helyét.
+
+Ezért a vészparancs után autobrr-ből érkező új torrentek továbbra is a
+beállított NVMe letöltési mappában indulnak.
+
 A vészparancs:
 
 - nem várja meg a beállított elkészülési időt;
