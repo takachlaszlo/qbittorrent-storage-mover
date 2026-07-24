@@ -2,8 +2,8 @@
 Description=Run qBittorrent storage mover hourly
 
 [Timer]
-OnActiveSec=1h
-OnUnitActiveSec=1h
+OnActiveSec=@RUN_INTERVAL@
+OnUnitActiveSec=@RUN_INTERVAL@
 RandomizedDelaySec=30s
 Persistent=true
 Unit=qbit-mover.service

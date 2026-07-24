@@ -31,6 +31,9 @@ The installer asks for:
 - Web UI username and password
 - Current qBittorrent download directory
 - Storage target directory
+- Hours to wait after completion
+- How often the check should run, in hours (decimals such as `0.5` are valid)
+- Whether to move all torrents or only torrents matching selected tags
 
 The password input is hidden. Server-specific settings are written to
 `/etc/qbit-mover/qbit-mover.env` with mode `0600`; no real `.env` file belongs
@@ -41,8 +44,9 @@ the dry run succeeds and you explicitly approve activation.
 
 ## Defaults
 
-- Completed age: 2 hours (`MIN_AGE_SECONDS=7200`)
-- Schedule: hourly
+- Completed age: 2 hours (`MIN_AGE_SECONDS=7200`), configurable at install
+- Schedule: hourly, configurable at install (for example `0.5` for 30 minutes)
+- Tags: all torrents by default; optional comma-separated `INCLUDE_TAGS`
 - Free-space reserve: 10 GiB
 - Destination: the exact target directory supplied during installation
 
@@ -70,6 +74,10 @@ sudo systemctl start qbit-mover.service
 ```
 
 Never commit the real environment file.
+
+When `INCLUDE_TAGS` contains multiple comma-separated tags, a torrent is
+eligible when it has **any** one of them. Tag matching is case-sensitive, just
+like qBittorrent tag names.
 
 ## Uninstall
 

@@ -76,6 +76,60 @@ target_path=$(prompt_default "Storage target directory" "/srv/storage")
 source_path=$(realpath -e -- "$source_path")
 target_path=$(realpath -e -- "$target_path")
 
+seed_hours=$(prompt_default "Move torrents this many hours after completion" "2")
+if [[ ! "$seed_hours" =~ ^[0-9]+([.][0-9]+)?$ ]]; then
+  echo "Invalid hour value: ${seed_hours}" >&2
+  exit 1
+fi
+min_age_seconds=$(
+  /usr/bin/python3 -c \
+    'import sys; print(round(float(sys.argv[1]) * 3600))' "$seed_hours"
+)
+if ((min_age_seconds < 1)); then
+  echo "The completion age must be greater than zero." >&2
+  exit 1
+fi
+
+check_interval_hours=$(prompt_default "Run the check every N hours" "1")
+if [[ ! "$check_interval_hours" =~ ^[0-9]+([.][0-9]+)?$ ]]; then
+  echo "Invalid hour value: ${check_interval_hours}" >&2
+  exit 1
+fi
+check_interval_seconds=$(
+  /usr/bin/python3 -c \
+    'import sys; print(round(float(sys.argv[1]) * 3600))' "$check_interval_hours"
+)
+if ((check_interval_seconds < 1)); then
+  echo "The check interval must be greater than zero." >&2
+  exit 1
+fi
+run_interval="${check_interval_seconds}s"
+
+move_scope=$(prompt_default "Move all torrents or only selected tags? (all/tags)" "all")
+case "${move_scope,,}" in
+  all|a)
+    include_tags=""
+    ;;
+  tags|tag|t)
+    read -r -p "Included qBittorrent tags (comma-separated, match any): " include_tags
+    include_tags=$(
+      /usr/bin/python3 -c '
+import sys
+tags = [tag.strip() for tag in sys.argv[1].split(",") if tag.strip()]
+print(",".join(dict.fromkeys(tags)))
+' "$include_tags"
+    )
+    if [[ -z "$include_tags" ]]; then
+      echo "At least one tag is required when tag filtering is selected." >&2
+      exit 1
+    fi
+    ;;
+  *)
+    echo "Choose either all or tags." >&2
+    exit 1
+    ;;
+esac
+
 if [[ ! -d "$source_path" || ! -d "$target_path" ]]; then
   echo "Source and target must both be existing directories." >&2
   exit 1
@@ -107,8 +161,9 @@ trap 'rm -f -- "${temp_config:-}"' EXIT
   write_env QB_PASSWORD "$qb_password"
   write_env SOURCE_PATH "$source_path"
   write_env TARGET_PATH "$target_path"
-  write_env MIN_AGE_SECONDS "7200"
+  write_env MIN_AGE_SECONDS "$min_age_seconds"
   write_env MIN_FREE_BYTES "10737418240"
+  write_env INCLUDE_TAGS "$include_tags"
   write_env DRY_RUN "1"
 } >"$temp_config"
 chown root:root "$temp_config"
@@ -120,8 +175,9 @@ unset qb_password
 sed "s/@SERVICE_USER@/${service_user}/g" \
   "${SCRIPT_DIR}/systemd/qbit-mover.service.in" >"$SERVICE_FILE"
 chmod 0644 "$SERVICE_FILE"
-install -o root -g root -m 0644 \
-  "${SCRIPT_DIR}/systemd/qbit-mover.timer" "$TIMER_FILE"
+sed "s/@RUN_INTERVAL@/${run_interval}/g" \
+  "${SCRIPT_DIR}/systemd/qbit-mover.timer" >"$TIMER_FILE"
+chmod 0644 "$TIMER_FILE"
 
 systemctl daemon-reload
 systemctl disable --now qbit-mover.timer >/dev/null 2>&1 || true

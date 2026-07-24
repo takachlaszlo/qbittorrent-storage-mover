@@ -22,6 +22,11 @@ TARGET_PATH = Path(os.environ["TARGET_PATH"]).resolve()
 MIN_AGE_SECONDS = int(os.environ.get("MIN_AGE_SECONDS", "7200"))
 MIN_FREE_BYTES = int(os.environ.get("MIN_FREE_BYTES", str(10 * 1024**3)))
 DRY_RUN = os.environ.get("DRY_RUN", "1").lower() in {"1", "yes", "true", "on"}
+INCLUDE_TAGS = {
+    tag.strip()
+    for tag in os.environ.get("INCLUDE_TAGS", "").split(",")
+    if tag.strip()
+}
 
 
 def log(message: str) -> None:
@@ -106,6 +111,13 @@ def main() -> int:
             continue
         if amount_left != 0 or not is_under(save_path, SOURCE_PATH):
             continue
+        torrent_tags = {
+            tag.strip()
+            for tag in (torrent.get("tags") or "").split(",")
+            if tag.strip()
+        }
+        if INCLUDE_TAGS and not INCLUDE_TAGS.intersection(torrent_tags):
+            continue
         if torrent.get("state") in {
             "moving",
             "checkingUP",
@@ -118,7 +130,15 @@ def main() -> int:
 
     eligible.sort(key=lambda item: int(item.get("completion_on") or 0))
     if not eligible:
-        log("No completed torrents are currently eligible for relocation.")
+        tag_note = (
+            f" matching tags: {', '.join(sorted(INCLUDE_TAGS))}"
+            if INCLUDE_TAGS
+            else ""
+        )
+        log(
+            "No completed torrents are currently eligible for relocation"
+            f"{tag_note}."
+        )
         return 0
 
     selected: list[dict] = []
