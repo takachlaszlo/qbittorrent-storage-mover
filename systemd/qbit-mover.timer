@@ -1,0 +1,12 @@
+[Unit]
+Description=Run qBittorrent storage mover hourly
+
+[Timer]
+OnActiveSec=1h
+OnUnitActiveSec=1h
+RandomizedDelaySec=30s
+Persistent=true
+Unit=qbit-mover.service
+
+[Install]
+WantedBy=timers.target

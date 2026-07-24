@@ -1,0 +1,5 @@
+*.env
+!qbit-mover.env.example
+__pycache__/
+*.py[cod]
+.DS_Store
