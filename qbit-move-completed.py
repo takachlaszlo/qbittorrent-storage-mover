@@ -151,8 +151,11 @@ def main() -> int:
         content_path = Path(torrent.get("content_path") or name)
         target_content = TARGET_PATH / content_path.name
         if target_content.exists():
-            log(f"SKIPPED, target already exists: {name!r} -> {target_content}")
-            continue
+            log(
+                "Target already contains an item with the same name; "
+                "qBittorrent will handle merging and any required recheck: "
+                f"{name!r} -> {target_content}"
+            )
 
         size = int(torrent.get("size") or torrent.get("total_size") or 0)
         if selected_bytes + size > usable_bytes:

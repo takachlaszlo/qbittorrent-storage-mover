@@ -489,10 +489,22 @@ A qBittorrent Linux-felhasználó nem írhat a célmappába. Ellenőrzés:
 namei -l /CEL/MAPPA
 ```
 
-### `SKIPPED, target already exists`
+### `Target already contains an item with the same name`
 
-Azonos nevű fájl vagy mappa már van a célhelyen. A program biztonsági okból nem
-írja felül. Vizsgáld meg kézzel a meglévő tartalmat.
+Azonos nevű fájl vagy mappa már van a célhelyen. Ez nem kihagyás: a program a
+torrentet ugyanúgy átadja a qBittorrentnek, mindig pontosan a beállított
+célmappával. A qBittorrent kezeli az összevonást és szükség esetén ellenőrzi a
+torrentet.
+
+Ez több trackeren seedelt, azonos nevű kiadásoknál is hasznos. Például az egyik
+torrent tartalmazhat ISO-fájlt, a másik BDMV-struktúrát, a harmadik pedig RAR
+darabokat; az eltérő fájlok egy közös kiadási mappába kerülhetnek. A script nem
+készít tracker-, hash- vagy ütközésmappát.
+
+Ha két torrentben ugyanazon a relatív útvonalon eltérő tartalmú fájl található,
+egy fájlrendszerben azon az egy útvonalon nem tárolható egyszerre két különböző
+fájl. Ilyenkor a qBittorrent ellenőrzése megmutathatja, hogy valamelyik torrent
+fájlja nem egyezik.
 
 ### `No completed torrents are currently eligible`
 
@@ -550,7 +562,10 @@ konténer eltérő útvonalakat láthat, ezért külön konfiguráció szükség
 - A célmappának már léteznie kell.
 - A qBittorrent-felhasználónak írnia kell tudnia a célba.
 - A forrás és cél nem lehet ugyanazon a fájlrendszeren.
-- A program nem ír felül létező azonos nevű célt.
+- A script nem másol és nem ír felül közvetlenül fájlokat: a költöztetést a
+  qBittorrent „Set location” funkciójára bízza.
+- Azonos nevű cél esetén sem készít másik mappát; pontosan a beállított
+  célmappát adja át a qBittorrentnek.
 - 10 GiB szabad helyet tartalékol.
 
 ## Projektfájlok
